@@ -26,6 +26,7 @@ torch.manual_seed(42)
 
 # Ensure NLTK data is downloaded
 nltk.download('punkt', quiet=True)
+nltk.download('punkt_tab', quiet=True)
 nltk.download('stopwords', quiet=True)
 stop_words = set(stopwords.words('english'))
 
