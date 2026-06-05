@@ -345,7 +345,20 @@ def get_metrics():
 
 @app.route("/test", methods=["GET"])
 def test():
-    return jsonify({"status": "ok", "version": "v1.2-gc-threads"})
+    try:
+        load_all_models()
+        return jsonify({
+            "status": "ok",
+            "version": "v1.2-gc-threads",
+            "models_loaded": list(MODELS.keys())
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "status": "error",
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
 
 if __name__ == "__main__":
     load_all_models()
