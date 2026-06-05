@@ -61,7 +61,14 @@ stop_words = set(stopwords.words('english'))
 MODELS = {}
 
 def load_all_models():
-    _import_torch_libs()
+    # Enable deep learning (LSTM, BERT) only if configured (disabled by default on memory-constrained 512MB RAM environments)
+    enable_dl = os.environ.get("ENABLE_DEEP_LEARNING", "false").lower() == "true"
+    
+    if enable_dl:
+        _import_torch_libs()
+    else:
+        print("Deep Learning models (LSTM, BERT) are disabled to conserve RAM. Set ENABLE_DEEP_LEARNING=true to enable.")
+        
     print("Loading models into memory...")
     import gc
     try:
@@ -88,31 +95,34 @@ def load_all_models():
                 print(f"Warning: Model {name} not found at {path}")
         gc.collect()
 
-        # Load LSTM
-        vocab_path = "backend/models/lstm_vocab.json"
-        lstm_path = "backend/models/lstm_model.pt"
-        if os.path.exists(vocab_path) and os.path.exists(lstm_path):
-            with open(vocab_path, "r") as f:
-                MODELS["lstm_vocab"] = json.load(f)
-            
-            lstm_model = LSTMClassifier(vocab_size=len(MODELS["lstm_vocab"]))
-            lstm_model.load_state_dict(torch.load(lstm_path, map_location=torch.device('cpu')))
-            lstm_model.eval()
-            MODELS["lstm"] = lstm_model
-        else:
-            print("Warning: LSTM files not found.")
-        gc.collect()
+        if enable_dl:
+            # Load LSTM
+            vocab_path = "backend/models/lstm_vocab.json"
+            lstm_path = "backend/models/lstm_model.pt"
+            if os.path.exists(vocab_path) and os.path.exists(lstm_path):
+                with open(vocab_path, "r") as f:
+                    MODELS["lstm_vocab"] = json.load(f)
+                
+                lstm_model = LSTMClassifier(vocab_size=len(MODELS["lstm_vocab"]))
+                lstm_model.load_state_dict(torch.load(lstm_path, map_location=torch.device('cpu')))
+                lstm_model.eval()
+                MODELS["lstm"] = lstm_model
+            else:
+                print("Warning: LSTM files not found.")
+            gc.collect()
 
-        # Load BERT
-        bert_path = "backend/models/bert_model"
-        if os.path.exists(bert_path):
-            MODELS["bert_tokenizer"] = AutoTokenizer.from_pretrained(bert_path)
-            bert_model = AutoModelForSequenceClassification.from_pretrained(bert_path)
-            bert_model.eval()
-            MODELS["bert"] = bert_model
+            # Load BERT
+            bert_path = "backend/models/bert_model"
+            if os.path.exists(bert_path):
+                MODELS["bert_tokenizer"] = AutoTokenizer.from_pretrained(bert_path)
+                bert_model = AutoModelForSequenceClassification.from_pretrained(bert_path)
+                bert_model.eval()
+                MODELS["bert"] = bert_model
+            else:
+                print("Warning: BERT model folder not found.")
+            gc.collect()
         else:
-            print("Warning: BERT model folder not found.")
-        gc.collect()
+            print("Skipping LSTM and BERT model load (ENABLE_DEEP_LEARNING is false).")
 
         # Load metrics
         metrics_path = "backend/models/metrics.json"
