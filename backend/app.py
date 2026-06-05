@@ -43,15 +43,10 @@ def _import_torch_libs():
                 
         LSTMClassifier = _LSTMClassifier
 
-app = Flask(__name__)
+from flask_cors import CORS
 
-# Add CORS headers manually
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
-    return response
+app = Flask(__name__)
+CORS(app)
 
 # Ensure NLTK data is downloaded
 nltk.download('punkt', quiet=True)
