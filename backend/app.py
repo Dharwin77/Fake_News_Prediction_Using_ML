@@ -27,6 +27,10 @@ def _import_torch_libs():
         AutoTokenizer = _AutoTokenizer
         AutoModelForSequenceClassification = _AutoModelForSequenceClassification
         
+        # Optimize PyTorch memory footprint in CPU constraints (Free tiers)
+        torch.set_num_threads(1)
+        torch.set_num_interop_threads(1)
+        
         # Define identical LSTM structure dynamically
         class _LSTMClassifier(nn.Module):
             def __init__(self, vocab_size, embedding_dim=64, hidden_dim=64, output_dim=1):
@@ -59,10 +63,12 @@ MODELS = {}
 def load_all_models():
     _import_torch_libs()
     print("Loading models into memory...")
+    import gc
     try:
         # Load vectorizer
         with open("backend/models/vectorizer.pkl", "rb") as f:
             MODELS["vectorizer"] = pickle.load(f)
+        gc.collect()
         
         # Load ML Models
         ml_names = [
@@ -80,6 +86,7 @@ def load_all_models():
                     MODELS[name] = pickle.load(f)
             else:
                 print(f"Warning: Model {name} not found at {path}")
+        gc.collect()
 
         # Load LSTM
         vocab_path = "backend/models/lstm_vocab.json"
@@ -94,6 +101,7 @@ def load_all_models():
             MODELS["lstm"] = lstm_model
         else:
             print("Warning: LSTM files not found.")
+        gc.collect()
 
         # Load BERT
         bert_path = "backend/models/bert_model"
@@ -104,6 +112,7 @@ def load_all_models():
             MODELS["bert"] = bert_model
         else:
             print("Warning: BERT model folder not found.")
+        gc.collect()
 
         # Load metrics
         metrics_path = "backend/models/metrics.json"
@@ -116,6 +125,8 @@ def load_all_models():
         print("All available models loaded successfully.")
     except Exception as e:
         print(f"Error loading models: {e}")
+    finally:
+        gc.collect()
 
 # Preprocessing stages collector
 def run_nlp_pipeline(text):
