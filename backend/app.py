@@ -239,96 +239,103 @@ def get_bert_prediction(text_cleaned):
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    if not MODELS:
-        load_all_models()
+    try:
+        if not MODELS:
+            load_all_models()
+            
+        data = request.get_json(silent=True) or {}
+        text = data.get("text", "").strip()
         
-    data = request.get_json(silent=True) or {}
-    text = data.get("text", "").strip()
-    
-    if not text:
-        return jsonify({"error": "Empty input text provided."}), 400
+        if not text:
+            return jsonify({"error": "Empty input text provided."}), 400
+            
+        # Run pipeline
+        pipeline = run_nlp_pipeline(text)
+        cleaned_text = pipeline["final"]
         
-    # Run pipeline
-    pipeline = run_nlp_pipeline(text)
-    cleaned_text = pipeline["final"]
-    
-    # Get TF-IDF vector
-    vectorizer = MODELS.get("vectorizer")
-    if not vectorizer:
-        return jsonify({"error": "Models not loaded correctly. Vectorizer missing."}), 500
+        # Get TF-IDF vector
+        vectorizer = MODELS.get("vectorizer")
+        if not vectorizer:
+            return jsonify({"error": "Models not loaded correctly. Vectorizer missing."}), 500
+            
+        tfidf_vec = vectorizer.transform([cleaned_text])
         
-    tfidf_vec = vectorizer.transform([cleaned_text])
-    
-    # Obtain predictions
-    predictions = {}
-    
-    # 1. ML models
-    ml_models = {
-        "Logistic Regression": "logistic_regression",
-        "Multinomial Naive Bayes": "multinomial_naive_bayes",
-        "Decision Tree": "decision_tree",
-        "Passive Aggressive Classifier": "passive_aggressive_classifier",
-        "Random Forest": "random_forest",
-        "Support Vector Machine": "support_vector_machine"
-    }
-    
-    for pretty_name, model_key in ml_models.items():
-        res = get_ml_prediction(model_key, tfidf_vec)
-        if res:
-            predictions[pretty_name] = res
-
-    # 2. LSTM model
-    lstm_res = get_lstm_prediction(cleaned_text)
-    if lstm_res:
-        predictions["LSTM"] = lstm_res
-
-    # 3. BERT model
-    bert_res = get_bert_prediction(cleaned_text)
-    if bert_res:
-        predictions["BERT"] = bert_res
+        # Obtain predictions
+        predictions = {}
         
-    # Build list structure
-    predictions_list = []
-    votes_true = 0
-    votes_fake = 0
-    total_valid_models = 0
-    
-    for name, res in predictions.items():
-        predictions_list.append({
-            "model": name,
-            "prediction": "True News" if res["prediction"] == 1 else "Fake News",
-            "prediction_code": res["prediction"],
-            "confidence": round(res["confidence"] * 100, 2)
-        })
-        if res["prediction"] == 1:
-            votes_true += 1
-        else:
-            votes_fake += 1
-        total_valid_models += 1
-        
-    # Ensemble Vote
-    if total_valid_models > 0:
-        ensemble_pred = 1 if votes_true >= votes_fake else 0
-        ensemble_verdict = "True News" if ensemble_pred == 1 else "Fake News"
-        winning_votes = votes_true if ensemble_pred == 1 else votes_fake
-        ensemble_confidence = round((winning_votes / total_valid_models) * 100, 2)
-    else:
-        ensemble_verdict = "Unknown"
-        ensemble_pred = -1
-        ensemble_confidence = 0.0
-
-    return jsonify({
-        "preprocessing_steps": pipeline,
-        "predictions": predictions_list,
-        "ensemble": {
-            "prediction": ensemble_verdict,
-            "prediction_code": ensemble_pred,
-            "confidence": ensemble_confidence,
-            "votes_true": votes_true,
-            "votes_fake": votes_fake,
-            "total_models": total_valid_models
+        # 1. ML models
+        ml_models = {
+            "Logistic Regression": "logistic_regression",
+            "Multinomial Naive Bayes": "multinomial_naive_bayes",
+            "Decision Tree": "decision_tree",
+            "Passive Aggressive Classifier": "passive_aggressive_classifier",
+            "Random Forest": "random_forest",
+            "Support Vector Machine": "support_vector_machine"
         }
-    })
+        
+        for pretty_name, model_key in ml_models.items():
+            res = get_ml_prediction(model_key, tfidf_vec)
+            if res:
+                predictions[pretty_name] = res
+
+        # 2. LSTM model
+        lstm_res = get_lstm_prediction(cleaned_text)
+        if lstm_res:
+            predictions["LSTM"] = lstm_res
+
+        # 3. BERT model
+        bert_res = get_bert_prediction(cleaned_text)
+        if bert_res:
+            predictions["BERT"] = bert_res
+            
+        # Build list structure
+        predictions_list = []
+        votes_true = 0
+        votes_fake = 0
+        total_valid_models = 0
+        
+        for name, res in predictions.items():
+            predictions_list.append({
+                "model": name,
+                "prediction": "True News" if res["prediction"] == 1 else "Fake News",
+                "prediction_code": res["prediction"],
+                "confidence": round(res["confidence"] * 100, 2)
+            })
+            if res["prediction"] == 1:
+                votes_true += 1
+            else:
+                votes_fake += 1
+            total_valid_models += 1
+            
+        # Ensemble Vote
+        if total_valid_models > 0:
+            ensemble_pred = 1 if votes_true >= votes_fake else 0
+            ensemble_verdict = "True News" if ensemble_pred == 1 else "Fake News"
+            winning_votes = votes_true if ensemble_pred == 1 else votes_fake
+            ensemble_confidence = round((winning_votes / total_valid_models) * 100, 2)
+        else:
+            ensemble_verdict = "Unknown"
+            ensemble_pred = -1
+            ensemble_confidence = 0.0
+
+        return jsonify({
+            "preprocessing_steps": pipeline,
+            "predictions": predictions_list,
+            "ensemble": {
+                "prediction": ensemble_verdict,
+                "prediction_code": ensemble_pred,
+                "confidence": ensemble_confidence,
+                "votes_true": votes_true,
+                "votes_fake": votes_fake,
+                "total_models": total_valid_models
+            }
+        })
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
 
 @app.route("/metrics", methods=["GET"])
 def get_metrics():
