@@ -322,6 +322,10 @@ def get_metrics():
             "traceback": traceback.format_exc()
         }), 500
 
+@app.route("/test", methods=["GET"])
+def test():
+    return jsonify({"status": "ok"})
+
 if __name__ == "__main__":
     load_all_models()
     port = int(os.environ.get("PORT", 5000))
