@@ -357,7 +357,7 @@ def test():
         load_all_models()
         return jsonify({
             "status": "ok",
-            "version": "v1.2-gc-threads",
+            "version": "v1.3-punkt-tab",
             "models_loaded": list(MODELS.keys())
         })
     except Exception as e:
