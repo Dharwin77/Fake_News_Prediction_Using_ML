@@ -311,9 +311,16 @@ def predict():
 
 @app.route("/metrics", methods=["GET"])
 def get_metrics():
-    if not MODELS:
-        load_all_models()
-    return jsonify(MODELS.get("metrics", {}))
+    try:
+        if not MODELS:
+            load_all_models()
+        return jsonify(MODELS.get("metrics", {}))
+    except Exception as e:
+        import traceback
+        return jsonify({
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
 
 if __name__ == "__main__":
     load_all_models()
