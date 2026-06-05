@@ -7,9 +7,41 @@ import nltk
 from nltk.corpus import stopwords
 from flask import Flask, request, jsonify
 
-import torch
-import torch.nn as nn
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
+# Lazy imports container for torch and transformers to conserve RAM on constrained environments
+torch = None
+nn = None
+AutoTokenizer = None
+AutoModelForSequenceClassification = None
+LSTMClassifier = None
+
+def _import_torch_libs():
+    global torch, nn, AutoTokenizer, AutoModelForSequenceClassification, LSTMClassifier
+    if torch is None:
+        print("Importing heavy libraries (torch, transformers) into memory...")
+        import torch as _torch
+        import torch.nn as _nn
+        from transformers import AutoTokenizer as _AutoTokenizer, AutoModelForSequenceClassification as _AutoModelForSequenceClassification
+        
+        torch = _torch
+        nn = _nn
+        AutoTokenizer = _AutoTokenizer
+        AutoModelForSequenceClassification = _AutoModelForSequenceClassification
+        
+        # Define identical LSTM structure dynamically
+        class _LSTMClassifier(nn.Module):
+            def __init__(self, vocab_size, embedding_dim=64, hidden_dim=64, output_dim=1):
+                super().__init__()
+                self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
+                self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
+                self.fc = nn.Linear(hidden_dim, output_dim)
+                
+            def forward(self, x):
+                embedded = self.embedding(x)
+                out, (hidden, cell) = self.lstm(embedded)
+                logits = self.fc(hidden[-1])
+                return logits
+                
+        LSTMClassifier = _LSTMClassifier
 
 app = Flask(__name__)
 
@@ -26,24 +58,11 @@ nltk.download('punkt', quiet=True)
 nltk.download('stopwords', quiet=True)
 stop_words = set(stopwords.words('english'))
 
-# Define identical LSTM structure as in train.py
-class LSTMClassifier(nn.Module):
-    def __init__(self, vocab_size, embedding_dim=64, hidden_dim=64, output_dim=1):
-        super().__init__()
-        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, batch_first=True)
-        self.fc = nn.Linear(hidden_dim, output_dim)
-        
-    def forward(self, x):
-        embedded = self.embedding(x)
-        out, (hidden, cell) = self.lstm(embedded)
-        logits = self.fc(hidden[-1])
-        return logits
-
 # Global model container
 MODELS = {}
 
 def load_all_models():
+    _import_torch_libs()
     print("Loading models into memory...")
     try:
         # Load vectorizer
