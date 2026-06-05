@@ -335,7 +335,7 @@ def get_metrics():
 
 @app.route("/test", methods=["GET"])
 def test():
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "ok", "version": "v1.2-gc-threads"})
 
 if __name__ == "__main__":
     load_all_models()
