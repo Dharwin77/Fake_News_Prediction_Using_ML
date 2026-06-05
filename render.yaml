@@ -1,0 +1,27 @@
+services:
+  # Backend Flask API
+  - type: web
+    name: fake-news-prediction-backend
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn backend.app:app
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: PYTHON_VERSION
+        value: 3.10.12
+
+  # Frontend React SPA
+  - type: web
+    name: fake-news-prediction-frontend
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    publishPath: frontend/dist
+    headers:
+      - path: /*
+        headers:
+          - key: Cache-Control
+            value: public, max-age=31536000, immutable
+    routes:
+      - src: /*
+        dest: /index.html
